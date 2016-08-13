@@ -1,6 +1,7 @@
 import datetime
 from application import db, flask_bcrypt
 from sqlalchemy.ext.hybrid import hybrid_property
+from ..posts.models import Post
 
 __all__ = ['followers', 'user']
 
@@ -28,13 +29,13 @@ class User(db.Model):
     followed = db.relationship(
         'User',
         secondary=followers,
-        primaryjoin=(id==followers.c.follower_id),
-        secondaryjoin=(id==followers.c.user_id),
+        primaryjoin=(id == followers.c.follower_id),
+        secondaryjoin=(id == followers.c.user_id),
         backref=db.backref('followers', lasy='dynamic'),
         lazy='dynamic'
     )
 
-    @hybriy_property
+    @hybrid_property
     def password(self):
         return self._password
 
@@ -54,7 +55,6 @@ class User(db.Model):
     def get_id(self):
         return unicode(self.id)
 
-
     def unfollow(self, user):
         if not self.is_following(user):
             return False
@@ -68,5 +68,14 @@ class User(db.Model):
         return self
 
     def is_following(self, user):
-        followed = self.followed.filter(followers.c.user_id == user_id)
+        followed = self.followed.filter(followers.c.user_id == user.id)
         return followed.count() > 0
+
+    def newsfeed(self):
+        join_condition = followers.c.user_id == Post.user_id
+        filter_condition = followers.c.follower_id == self.id
+        ordering = Post.created_on.desc()
+
+        return Post.query.join(
+            followers,
+            (join_condition)).filter(filter_condition).order_by(ordering)
